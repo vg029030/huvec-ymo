@@ -16,6 +16,12 @@ suppressPackageStartupMessages(library(magrittr))
 suppressPackageStartupMessages(library(ggpubr))
 suppressPackageStartupMessages(library(gridExtra))
 
+
+suppressPackageStartupMessages(library(AnnotationHub))
+suppressPackageStartupMessages(library(karyoploteR))
+suppressPackageStartupMessages(library(TxDb.Hsapiens.UCSC.hg38.knownGene))
+suppressPackageStartupMessages(library(org.Hs.eg.db))
+
 # renv::snapshot()
 
 ########################################################### 
@@ -24,6 +30,7 @@ suppressPackageStartupMessages(library(gridExtra))
 
 
 load(file = "app_db/app_data.Rdata")
+load(file = "app_db/browser_data.Rdata")
 
 ########################################################### 
 #query gene list
@@ -154,8 +161,121 @@ prot_plot_fun <- function(query_gene){
     theme(text = element_text(size=12),axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 }
   
+########################################################### 
+#Plot ChIP seq dataset for HUVEC YMO REST and EGR1
+########################################################### 
+
+  
+plot_static_browser_view <- function(query_gene){
+  
+  pp <- getDefaultPlotParams(plot.type=1)
+  pp$leftmargin <- 0.15
+  pp$topmargin <- 15
+  pp$bottommargin <- 15
+  pp$ideogramheight <- 5
+  pp$data1inmargin <- 10
+  pp$data1outmargin <- 0
+  
+  myGeneSymbols <- select(org.Hs.eg.db,
+                          keys = query_gene,
+                          columns = c("SYMBOL","ENTREZID"),
+                          keytype = "SYMBOL")
+  
+  myGeneSymbolsTx <- select(TxDb.Hsapiens.UCSC.hg38.knownGene,
+                            keys = myGeneSymbols$ENTREZID,
+                            columns = c("GENEID", "TXID", "TXCHROM", "TXSTART", "TXEND"),
+                            keytype = "GENEID")
+  
+  region <- merge(myGeneSymbols, myGeneSymbolsTx, by.x = "ENTREZID", by.y = "GENEID")
+  region$length <- region$TXEND-region$TXSTART
+  region <- region[which.max(abs(region$length)),]
+  region <- toGRanges(paste0(c(region$TXCHROM,":",region$TXSTART,"-",region$TXEND),collapse = ""))
+  
+  region <- region+5000
   
   
+  kp <- plotKaryotype(zoom = region, cex=1, plot.params = pp,plot.type = 2)
+  kpAddBaseNumbers(kp, tick.dist = 10000, minor.tick.dist = 2000,
+                   add.units = TRUE, cex=1, tick.len = 3)
+  kpAddMainTitle(kp, paste0("HUVEC-YMO ChIP seq profiles for ",query_gene), cex=2)
+  
+  genes.data <- makeGenesDataFromTxDb(txdb = TxDb.Hsapiens.UCSC.hg38.knownGene,
+                                      karyoplot=kp,
+                                      plot.transcripts = TRUE,
+                                      plot.transcripts.structure = TRUE)
+  
+  genes.data <- addGeneNames(genes.data)
+  genes.data <- mergeTranscripts(genes.data)
+  
+  kpPlotGenes(kp, data=genes.data, r0=0, r1=0.05, gene.name.cex = 1)
+  # kpPlotRegions(kp, epic_gr,col=colByChr(epic_gr$methylated,colors = cols), r0=0.2, r1=0.25,avoid.overlapping = F,clipping = F)
+  
+  kpPlotRegions(kp, data = epic_38_gr,col = epic_38_gr$jhs_color, r0=0.06, r1=0.10)
+  kpAddLabels(kp, labels = "JHS-EPIC", r0=0.06, r1=0.08,cex=1)
+  
+  kpPlotRegions(kp, data = epic_38_gr,col = epic_38_gr$huvec_color, r0=0.11, r1=0.15)
+  kpAddLabels(kp, labels = "HUVEC-Oldv/sYoung", r0=0.11, r1=0.13,cex=1)
+  
+  kpPlotRegions(kp, promoters, col="red", r0=0.16, r1=0.20)
+  kpAddLabels(kp, labels = "Promoters", r0=0.16, r1=0.18,cex=1)
+  
+  kpPlotRegions(kp, hmm.model, col=hmm.model$RGB, r0=0.21, r1=0.25)
+  kpAddLabels(kp, labels = "Chromatin\nState (HMM)", r0=0.21, r1=0.23,cex=1)
+ 
+  
+
+   computed.ymax.rest <-0
+   for(i in names(c(histone.marks))){
+     temp <- max(import(paste0(paste0(base.url, histone.marks[i])),which=region)$score)
+     computed.ymax.rest <- ifelse(computed.ymax.rest > temp,computed.ymax.rest,temp)
+     computed.ymax.rest <- round(computed.ymax.rest,0)
+   }
+   computed.ymax.egr1 <-0
+   for(i in names(c(DNA.binding))){
+     temp <- max(import(paste0(paste0(base.url, DNA.binding[i])),which=region)$score)
+     computed.ymax.egr1 <- ifelse(computed.ymax.egr1 > temp,computed.ymax.egr1,temp)
+     computed.ymax.egr1 <- round(computed.ymax.egr1,0)
+   }
+  
+  
+  #Histone marks
+  total.tracks <- length(histone.marks)+length(DNA.binding)
+  out.at <- autotrack(1:length(histone.marks), total.tracks, margin = 0.24, r0=0.35)
+  
+  for(i in seq_len(length(histone.marks))) {
+    bigwig.file <- paste0(base.url, histone.marks[i])
+    at <- autotrack(i, length(histone.marks), r0=out.at$r0, r1=out.at$r1, margin = 0.1)
+    # kp <- kpPlotBigWig(kp, data=bigwig.file, ymax="visible.region",
+    # kp <- kpPlotBigWig(kp, data=bigwig.file, ymax = "global",
+    kp <- kpPlotBigWig(kp, data=bigwig.file, ymax=computed.ymax.rest,
+                       r0=at$r0, r1=at$r1, col = "cadetblue2")
+    # computed.ymax <- ceiling(kp$latest.plot$computed.values$ymax)
+    # computed.ymax <- ifelse(computed.ymax > ceiling(kp$latest.plot$computed.values$ymax),computed.ymax,ceiling(kp$latest.plot$computed.values$ymax))
+    kpAxis(kp, ymin=0, ymax=computed.ymax.rest, numticks = 2, r0=at$r0, r1=at$r1,cex=0.5)
+    # kpAxis(kp, ymin=0, ymax=31, numticks = 2, r0=at$r0, r1=at$r1,cex=0.5)
+    kpAddLabels(kp, labels = names(histone.marks)[i], r0=at$r0, r1=at$r1, 
+                cex=1, label.margin = 0.035)
+  }
+  
+  #DNA binding proteins
+  out.at <- autotrack((length(histone.marks)+1):(total.tracks), total.tracks, margin = 0.36, r0=0.45)
+  
+  for(i in seq_len(length(DNA.binding))) {
+    bigwig.file <- paste0(base.url, DNA.binding[i])
+    at <- autotrack(i, length(DNA.binding), r0=out.at$r0, r1=out.at$r1, margin = 0.1)
+    # kp <- kpPlotBigWig(kp, data=bigwig.file, ymax="visible.region",
+    # kp <- kpPlotBigWig(kp, data=bigwig.file, ymax = "global",
+    kp <- kpPlotBigWig(kp, data=bigwig.file, ymax=computed.ymax.egr1,
+                       r0=at$r0, r1=at$r1, col = "darkolivegreen1")
+    # computed.ymax <- ceiling(kp$latest.plot$computed.values$ymax)
+    # computed.ymax <- ifelse(computed.ymax > ceiling(kp$latest.plot$computed.values$ymax),computed.ymax,ceiling(kp$latest.plot$computed.values$ymax))
+    kpAxis(kp, ymin=0, ymax=computed.ymax.egr1, numticks = 2, r0=at$r0, r1=at$r1,cex=0.5)
+    # kpAxis(kp, ymin=0, ymax=31, numticks = 2, r0=at$r0, r1=at$r1,cex=0.5)
+    kpAddLabels(kp, labels = names(DNA.binding)[i], r0=at$r0, r1=at$r1, 
+                cex=1, label.margin = 0.035)
+  }
+}
+
 
 
 
@@ -200,7 +320,7 @@ ui <- bootstrapPage(
                             tabPanel("Transcript Level Expression", uiOutput('mytabs2')),
                             tabPanel("Methylation", uiOutput('mytabs')),
                             tabPanel("Proteomics",uiOutput('prot_plot')),
-                            tabPanel("ChIPseq",uiOutput('chipseq'))
+                            tabPanel("ChIPseq",uiOutput('chipseq_tab'))
                             
                           )
                         )
@@ -230,6 +350,18 @@ server <- function(input, output, session) {
     myTabs = lapply(nTabs, function(x){
       tabPanel(x,renderPlot({
         transcript_age_plot(x)
+      },height = 600))})
+    
+    do.call(tabsetPanel, myTabs)
+  })
+  
+  
+  output$chipseq_tab = renderUI({
+    nTabs = input$input_gene2
+    
+    myTabs = lapply(nTabs, function(x){
+      tabPanel(x,renderPlot({
+        plot_static_browser_view(x)
       },height = 600))})
     
     do.call(tabsetPanel, myTabs)
