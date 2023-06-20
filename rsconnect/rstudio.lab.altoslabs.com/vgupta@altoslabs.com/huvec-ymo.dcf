@@ -5,10 +5,10 @@ account: vgupta@altoslabs.com
 server: rstudio.lab.altoslabs.com
 hostUrl: https://rstudio.lab.altoslabs.com/__api__
 appId: 32
-bundleId: 121
+bundleId: 216
 url: https://rstudio.lab.altoslabs.com/content/0ce47f57-39d0-437e-af74-020ba522740f/
-when: 1678284207.06406
-lastSyncTime: 1678284207.06408
+when: 1684766258.98435
+lastSyncTime: 1684766258.98437
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: obselete_scripts/.Rhistory|obselete_scripts/app_db_generator.R
+ignoredFiles: app_db/.DS_Store|obselete_scripts/.Rhistory|obselete_scripts/app_db_generator.R|obselete_scripts/karyoplotr_VG_chipseq.R|README.md

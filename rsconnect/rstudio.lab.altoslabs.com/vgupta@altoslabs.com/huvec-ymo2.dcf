@@ -1,0 +1,14 @@
+name: huvec-ymo2
+title: huvec-ymo
+username: vgupta@altoslabs.com
+account: vgupta@altoslabs.com
+server: rstudio.lab.altoslabs.com
+hostUrl: https://rstudio.lab.altoslabs.com/__api__
+appId: 42
+bundleId: 215
+url: https://rstudio.lab.altoslabs.com/content/4582f46e-e8ae-4d52-aa9d-414d7bc9813a/
+when: 1684765891.88709
+lastSyncTime: 1684765891.8871
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: app_db/.DS_Store|obselete_scripts/.Rhistory|obselete_scripts/app_db_generator.R|obselete_scripts/karyoplotr_VG_chipseq.R|README.md

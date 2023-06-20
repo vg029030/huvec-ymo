@@ -1,3 +1,4 @@
+rm(list = ls())
 suppressPackageStartupMessages(library(DESeq2))
 suppressPackageStartupMessages(library(plotly))
 suppressPackageStartupMessages(library(tidyverse))
@@ -68,6 +69,20 @@ huvec_10.g.count.matrix <- assay(huvec_10.g.count,"counts")
 head(huvec_10.g.count.matrix)
 
 
+# HUVEC EZH2-inhibitor and Exosome RNAseq
+
+meta_exo_ezh2 <- read_csv("../../../../EXP23001558_EXP23001647_EXP23001812/combined_samplesheet_auto.csv",n_max = 60)
+# samples_desc$batch <- factor(samples_desc$batch,unique(samples_desc$batch))
+# choose_samples <- c("CTRL_GSK","GSK","CTRL_EXO","EXO","REST_OE","REST_CTRL")
+# meta_exo_ezh2 <- meta_exo_ezh2 %>% filter(.,VG_label %in% choose_samples)
+
+
+ezh2_exo_count <- readRDS("../../../../EXP23001558_EXP23001647_EXP23001812/Counts/salmon.merged.gene_counts.rds")
+ezh2_exo_count <- assay(ezh2_exo_count,"counts")
+head(ezh2_exo_count)
+
+
+
 # HUVEC proteomics preliminary run dataset
 
 library(tibble)
@@ -80,4 +95,6 @@ proteo <- data.table::fread("../../../PROTEOMICS/20230224_KeRa1_simplified_PG_Ma
 proteo <- proteo[-1,]
 
 
-save(list=c("samples_desc","g.count.matrix","t.count.matrix","dat0","tx2gene","epic","huvec_10_samples_desc","huvec_10.g.count.matrix","p_meta","proteo"),file = "../app_db/app_data.Rdata")
+proteo_tmt <- data.table::fread("../../../../EXP23001558_EXP23001647_EXP23001812/Proteomics/prot_corrected.txt") %>% column_to_rownames("Accession")
+
+save(list=c("samples_desc","g.count.matrix","t.count.matrix","dat0","tx2gene","epic","huvec_10_samples_desc","huvec_10.g.count.matrix","p_meta","proteo","meta_exo_ezh2","ezh2_exo_count","proteo_tmt"),file = "../app_db/app_data.Rdata")

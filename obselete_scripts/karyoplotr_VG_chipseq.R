@@ -1,3 +1,4 @@
+rm(list = ls())
 library(AnnotationHub)
 library(karyoploteR)
 library(BiocFileCache)
@@ -24,7 +25,7 @@ pvalue_cut <- 1.0e-03
 epic_huvec_DE <- data.table::fread("../../../METHYLATION/DE_meth_old_young.tsv")%>%
   column_to_rownames("V1") %>%
   mutate(age_associated=(adj.P.Val < pvalue_cut)) %>%
-  mutate(methylated=ifelse((logFC>0 & adj.P.Val < pvalue_cut),"HYPER",ifelse((logFC<0 & adj.P.Val < pvalue_cut),"HYPO","NOCHANGE"))) 
+  mutate(methylated=ifelse((logFC>0.2 & adj.P.Val < pvalue_cut),"HYPER",ifelse((logFC<-0.2 & adj.P.Val < pvalue_cut),"HYPO","NOCHANGE"))) 
 cols <- c(NOCHANGE="lightgrey", HYPER="red","HYPO"="blue")
 epic_huvec_DE$huvec_color <- plyr::mapvalues(epic_huvec_DE$methylated,names(cols),cols)
 
@@ -56,22 +57,22 @@ promoters <- promoters(genes(TxDb.Hsapiens.UCSC.hg38.knownGene))
 # , upstream = 1000, downstream = 1000)
 
 
-base.url="app_db/"
-histone.marks <- c(
-  OLD_REST="OLD_REST.bw",
-  MIDDLE_REST="MEDIUM_REST.bw",
-  YOUNG_REST="YOUNG_REST.bw"
-  # ,YOUNG_input="3_0BGS_01FXPHE_FSK_Input_hg38_i49_uniqnorm_signal.bw"
-)
+# base.url="app_db/"
+# histone.marks <- c(
+#   OLD_REST="OLD_REST.bw",
+#   MIDDLE_REST="MEDIUM_REST.bw",
+#   YOUNG_REST="YOUNG_REST.bw"
+#   # ,YOUNG_input="3_0BGS_01FXPHE_FSK_Input_hg38_i49_uniqnorm_signal.bw"
+# )
+# 
+# DNA.binding <- c(
+#   OLD_EGR1="OLD_EGR1.bw",
+#   MIDDLE_EGR1="MEDIUM_EGR1.bw",
+#   YOUNG_EGR1="YOUNG_EGR1.bw"
+# )
 
-DNA.binding <- c(
-  OLD_EGR1="OLD_EGR1.bw",
-  MIDDLE_EGR1="MEDIUM_EGR1.bw",
-  YOUNG_EGR1="YOUNG_EGR1.bw"
-)
 
-
-save(list=c("epic_38_gr","hmm.model","promoters","histone.marks","DNA.binding","base.url"),file = "../app_db/browser_data.Rdata")
+save(list=c("epic_38_gr","hmm.model","promoters"),file = "../app_db/browser_data.Rdata")
 
 
 
@@ -86,15 +87,15 @@ plot_static_browser_view <- function(query_gene){
   pp$data1inmargin <- 10
   pp$data1outmargin <- 0
   
-  myGeneSymbols <- select(org.Hs.eg.db,
-                          keys = query_gene,
-                          columns = c("SYMBOL","ENTREZID"),
-                          keytype = "SYMBOL")
+  myGeneSymbols <- AnnotationDbi::select(org.Hs.eg.db,
+                                         keys = query_gene,
+                                         columns = c("SYMBOL","ENTREZID"),
+                                         keytype = "SYMBOL")
   
-  myGeneSymbolsTx <- select(TxDb.Hsapiens.UCSC.hg38.knownGene,
-                            keys = myGeneSymbols$ENTREZID,
-                            columns = c("GENEID", "TXID", "TXCHROM", "TXSTART", "TXEND"),
-                            keytype = "GENEID")
+  myGeneSymbolsTx <- AnnotationDbi::select(TxDb.Hsapiens.UCSC.hg38.knownGene,
+                                           keys = myGeneSymbols$ENTREZID,
+                                           columns = c("GENEID", "TXID", "TXCHROM", "TXSTART", "TXEND"),
+                                           keytype = "GENEID")
   
   region <- merge(myGeneSymbols, myGeneSymbolsTx, by.x = "ENTREZID", by.y = "GENEID")
   region$length <- region$TXEND-region$TXSTART
@@ -117,44 +118,142 @@ plot_static_browser_view <- function(query_gene){
   genes.data <- addGeneNames(genes.data)
   genes.data <- mergeTranscripts(genes.data)
   
-  kpPlotGenes(kp, data=genes.data, r0=0, r1=0.05, gene.name.cex = 1)
+  kpPlotGenes(kp, data=genes.data, r0=0, r1=0.02, gene.name.cex = 1)
   # kpPlotRegions(kp, epic_gr,col=colByChr(epic_gr$methylated,colors = cols), r0=0.2, r1=0.25,avoid.overlapping = F,clipping = F)
   
-  kpPlotRegions(kp, data = epic_38_gr,col = epic_38_gr$jhs_color, r0=0.06, r1=0.10)
-  kpAddLabels(kp, labels = "JHS-EPIC", r0=0.06, r1=0.08,cex=1)
+  kpPlotRegions(kp, data = epic_38_gr,col = epic_38_gr$jhs_color, r0=0.03, r1=0.06)
+  kpAddLabels(kp, labels = "HUMAN-EWAS", r0=0.04, r1=0.05,cex=1)
   
-  kpPlotRegions(kp, data = epic_38_gr,col = epic_38_gr$huvec_color, r0=0.11, r1=0.15)
-  kpAddLabels(kp, labels = "HUVEC-Oldv/sYoung", r0=0.11, r1=0.13,cex=1)
+  kpPlotRegions(kp, data = epic_38_gr,col = epic_38_gr$huvec_color, r0=0.07, r1=0.10)
+  kpAddLabels(kp, labels = "HUVEC-Oldv/sYoung", r0=0.08, r1=0.09,cex=1)
   
-  kpPlotRegions(kp, promoters, col="red", r0=0.16, r1=0.20)
-  kpAddLabels(kp, labels = "Promoters", r0=0.16, r1=0.18,cex=1)
+  kpPlotRegions(kp, promoters, col="red", r0=0.11, r1=0.13)
+  kpAddLabels(kp, labels = "Promoters", r0=0.12, r1=0.13,cex=1)
   
-  kpPlotRegions(kp, hmm.model, col=hmm.model$RGB, r0=0.21, r1=0.25)
-  kpAddLabels(kp, labels = "Chromatin\nState (HMM)", r0=0.21, r1=0.23,cex=1)
+  kpPlotRegions(kp, hmm.model, col=hmm.model$RGB, r0=0.14, r1=0.16)
+  kpAddLabels(kp, labels = "Chromatin\nState (HMM)", r0=0.14, r1=0.15,cex=1)
+  
+  # s3_folder <- "/share/vgupta/workspaces/huvec-analysis/HUVEC_YMP_CHIPseq_bw/"
+  s3_folder <- "~/Google Drive/Shared drives/Raj Lab/VipulGupta/HUVEC_YMO/CHIPseq/Diffbind_all_samples/bw/"
+  
+  rest_files <- c(OLD_REST="OLD_REST.bw",MIDDLE_REST="MEDIUM_REST.bw",YOUNG_REST="YOUNG_REST.bw")
+  egr1_files <- c(OLD_EGR1="OLD_EGR1.bw",MIDDLE_EGR1="MEDIUM_EGR1.bw",YOUNG_EGR1="YOUNG_EGR1.bw")
+  ezh2_files <- c(OLD_EZH2="OLD_EZH2.bw",MIDDLE_EZH2="MEDIUM_EZH2.bw",YOUNG_EZH2="YOUNG_EZH2.bw")
+  jarid2_files <- c(OLD_JARID2="OLD_JARID2.bw",MIDDLE_JARID2="MEDIUM_JARID2.bw",YOUNG_JARID2="YOUNG_JARID2.bw")
+  k4me3_files <- c(OLD_K4me3="OLD_K4me3.bw",MIDDLE_K4me3="MEDIUM_K4me3.bw",YOUNG_K4me3="YOUNG_K4me3.bw")
+  k27me3_files <- c(OLD_K27me3="OLD_K27me3.bw",MIDDLE_K27me3="MEDIUM_K27me3.bw",YOUNG_K27me3="YOUNG_K27me3.bw")
   
   
   
+  
+  computed.ymax.k27me3 <-0
+  for(i in names(c(k27me3_files))){
+    temp <- max(import(paste0(s3_folder,k27me3_files[i]),which=region)$score)
+    computed.ymax.k27me3 <- ifelse(computed.ymax.k27me3 > temp,computed.ymax.k27me3,temp)
+    computed.ymax.k27me3 <- ifelse(round(computed.ymax.k27me3,0) > 1,round(computed.ymax.k27me3,0),1)
+  }
   computed.ymax.rest <-0
-  for(i in names(c(histone.marks))){
-    temp <- max(import(paste0(paste0(base.url, histone.marks[i])),which=region)$score)
+  for(i in names(c(rest_files))){
+    temp <- max(import(paste0(paste0(s3_folder,rest_files[i])),which=region)$score)
     computed.ymax.rest <- ifelse(computed.ymax.rest > temp,computed.ymax.rest,temp)
-    computed.ymax.rest <- round(computed.ymax.rest,0)
+    computed.ymax.rest <- ifelse(round(computed.ymax.rest,0) > 1,round(computed.ymax.rest,0),1)
   }
   computed.ymax.egr1 <-0
-  for(i in names(c(DNA.binding))){
-    temp <- max(import(paste0(paste0(base.url, DNA.binding[i])),which=region)$score)
+  for(i in names(c(egr1_files))){
+    temp <- max(import(paste0(paste0(s3_folder, egr1_files[i])),which=region)$score)
     computed.ymax.egr1 <- ifelse(computed.ymax.egr1 > temp,computed.ymax.egr1,temp)
-    computed.ymax.egr1 <- round(computed.ymax.egr1,0)
+    computed.ymax.egr1 <- ifelse(round(computed.ymax.egr1,0) > 1,round(computed.ymax.egr1,0),1)
+  }
+  computed.ymax.k4me3 <-0
+  for(i in names(k4me3_files)){
+    temp <- max(import(paste0(s3_folder, k4me3_files[i]),which=region)$score)
+    computed.ymax.k4me3 <- ifelse(computed.ymax.k4me3 > temp,computed.ymax.k4me3,temp)
+    computed.ymax.k4me3 <- ifelse(round(computed.ymax.k4me3,0) > 1,round(computed.ymax.k4me3,0),1)
   }
   
+  computed.ymax.ezh2 <-0
+  for(i in names(c(ezh2_files))){
+    temp <- max(import(paste0(paste0(s3_folder, ezh2_files[i])),which=region)$score)
+    computed.ymax.ezh2 <- ifelse(computed.ymax.ezh2 > temp,computed.ymax.ezh2,temp)
+    computed.ymax.ezh2 <- ifelse(round(computed.ymax.ezh2,0) > 1,round(computed.ymax.ezh2,0),1)
+  }
+  computed.ymax.jarid2 <-0
+  for(i in names(c(jarid2_files))){
+    temp <- max(import(paste0(paste0(s3_folder, jarid2_files[i])),which=region)$score)
+    computed.ymax.jarid2 <- ifelse(computed.ymax.jarid2 > temp,computed.ymax.jarid2,temp)
+    computed.ymax.jarid2 <- ifelse(round(computed.ymax.jarid2,0) > 1,round(computed.ymax.jarid2,0),1)
+  }
   
-  #Histone marks
-  total.tracks <- length(histone.marks)+length(DNA.binding)
-  out.at <- autotrack(1:length(histone.marks), total.tracks, margin = 0.24, r0=0.35)
+  total.tracks <- length(k27me3_files)+length(k4me3_files)+length(ezh2_files)+length(jarid2_files)+length(rest_files)+length(egr1_files)
   
-  for(i in seq_len(length(histone.marks))) {
-    bigwig.file <- paste0(base.url, histone.marks[i])
-    at <- autotrack(i, length(histone.marks), r0=out.at$r0, r1=out.at$r1, margin = 0.1)
+  #K27me3 Track
+  out.at <- autotrack(1:3, total.tracks,  r0=0.17,r1=1,margin = 0.1)
+  for(i in seq_len(length(k27me3_files))) {
+    bigwig.file <- paste0(s3_folder, k27me3_files[i])
+    at <- autotrack(i, 3, r0=out.at$r0, r1=out.at$r1,margin = 0.1)
+    # kp <- kpPlotBigWig(kp, data=bigwig.file, ymax="visible.region",
+    # kp <- kpPlotBigWig(kp, data=bigwig.file, ymax = "global",
+    kp <- kpPlotBigWig(kp, data=bigwig.file, ymax=computed.ymax.k27me3,
+                       r0=at$r0, r1=at$r1, col = "#AAFFAA")
+    # computed.ymax <- ceiling(kp$latest.plot$computed.values$ymax)
+    # computed.ymax <- ifelse(computed.ymax > ceiling(kp$latest.plot$computed.values$ymax),computed.ymax,ceiling(kp$latest.plot$computed.values$ymax))
+    kpAxis(kp, ymin=0, ymax=computed.ymax.k27me3, numticks = 2, r0=at$r0, r1=at$r1,cex=0.5)
+    # kpAxis(kp, ymin=0, ymax=31, numticks = 2, r0=at$r0, r1=at$r1,cex=0.5)
+    kpAddLabels(kp, labels = names(k27me3_files)[i], r0=at$r0, r1=at$r1,cex=1, label.margin = 0.035)
+  }
+  
+  #k4me3 Track
+  out.at <- autotrack(4:6, total.tracks,  r0=0.17,r1=1,margin = 0.1)
+  for(i in seq_len(length(k4me3_files))) {
+    bigwig.file <- paste0(s3_folder, k4me3_files[i])
+    at <- autotrack(i, 3, r0=out.at$r0, r1=out.at$r1,margin = 0.1)
+    # kp <- kpPlotBigWig(kp, data=bigwig.file, ymax="visible.region",
+    # kp <- kpPlotBigWig(kp, data=bigwig.file, ymax = "global",
+    kp <- kpPlotBigWig(kp, data=bigwig.file, ymax=computed.ymax.k4me3,
+                       r0=at$r0, r1=at$r1, col = "#AAAAFF")
+    # computed.ymax <- ceiling(kp$latest.plot$computed.values$ymax)
+    # computed.ymax <- ifelse(computed.ymax > ceiling(kp$latest.plot$computed.values$ymax),computed.ymax,ceiling(kp$latest.plot$computed.values$ymax))
+    kpAxis(kp, ymin=0, ymax=computed.ymax.k4me3, numticks = 2, r0=at$r0, r1=at$r1,cex=0.5)
+    # kpAxis(kp, ymin=0, ymax=31, numticks = 2, r0=at$r0, r1=at$r1,cex=0.5)
+    kpAddLabels(kp, labels = names(k4me3_files)[i], r0=at$r0, r1=at$r1, cex=1, label.margin = 0.035)
+  }
+  #ezh2 Track
+  out.at <- autotrack(7:9, total.tracks, r0=0.17,r1=1,margin = 0.1)
+  for(i in seq_len(length(ezh2_files))) {
+    bigwig.file <- paste0(s3_folder, ezh2_files[i])
+    at <- autotrack(i, 3, r0=out.at$r0, r1=out.at$r1,margin = 0.1)
+    # kp <- kpPlotBigWig(kp, data=bigwig.file, ymax="visible.region",
+    # kp <- kpPlotBigWig(kp, data=bigwig.file, ymax = "global",
+    kp <- kpPlotBigWig(kp, data=bigwig.file, ymax=computed.ymax.ezh2,
+                       r0=at$r0, r1=at$r1, col = "#FFAAAA")
+    # computed.ymax <- ceiling(kp$latest.plot$computed.values$ymax)
+    # computed.ymax <- ifelse(computed.ymax > ceiling(kp$latest.plot$computed.values$ymax),computed.ymax,ceiling(kp$latest.plot$computed.values$ymax))
+    kpAxis(kp, ymin=0, ymax=computed.ymax.ezh2, numticks = 2, r0=at$r0, r1=at$r1,cex=0.5)
+    # kpAxis(kp, ymin=0, ymax=31, numticks = 2, r0=at$r0, r1=at$r1,cex=0.5)
+    kpAddLabels(kp, labels = names(ezh2_files)[i], r0=at$r0, r1=at$r1,cex=1, label.margin = 0.035)
+  }
+  
+  #jarid2 Track
+  out.at <- autotrack(10:12, total.tracks, r0=0.17,r1=1,margin = 0.1)
+  for(i in seq_len(length(jarid2_files))) {
+    bigwig.file <- paste0(s3_folder, jarid2_files[i])
+    at <- autotrack(i, 3, r0=out.at$r0, r1=out.at$r1,margin = 0.1)
+    # kp <- kpPlotBigWig(kp, data=bigwig.file, ymax="visible.region",
+    # kp <- kpPlotBigWig(kp, data=bigwig.file, ymax = "global",
+    kp <- kpPlotBigWig(kp, data=bigwig.file, ymax=computed.ymax.jarid2,
+                       r0=at$r0, r1=at$r1, col = "#E4D00A")
+    # computed.ymax <- ceiling(kp$latest.plot$computed.values$ymax)
+    # computed.ymax <- ifelse(computed.ymax > ceiling(kp$latest.plot$computed.values$ymax),computed.ymax,ceiling(kp$latest.plot$computed.values$ymax))
+    kpAxis(kp, ymin=0, ymax=computed.ymax.jarid2, numticks = 2, r0=at$r0, r1=at$r1,cex=0.5)
+    # kpAxis(kp, ymin=0, ymax=31, numticks = 2, r0=at$r0, r1=at$r1,cex=0.5)
+    kpAddLabels(kp, labels = names(jarid2_files)[i], r0=at$r0, r1=at$r1,cex=1, label.margin = 0.035)
+  }
+  
+  # REST track
+  out.at <- autotrack(13:15, total.tracks,  r0=0.17,r1=1,margin = 0.1)
+  for(i in seq_len(length(rest_files))) {
+    bigwig.file <- paste0(s3_folder, rest_files[i])
+    at <- autotrack(i, 3, r0=out.at$r0, r1=out.at$r1,margin = 0.1)
     # kp <- kpPlotBigWig(kp, data=bigwig.file, ymax="visible.region",
     # kp <- kpPlotBigWig(kp, data=bigwig.file, ymax = "global",
     kp <- kpPlotBigWig(kp, data=bigwig.file, ymax=computed.ymax.rest,
@@ -163,16 +262,15 @@ plot_static_browser_view <- function(query_gene){
     # computed.ymax <- ifelse(computed.ymax > ceiling(kp$latest.plot$computed.values$ymax),computed.ymax,ceiling(kp$latest.plot$computed.values$ymax))
     kpAxis(kp, ymin=0, ymax=computed.ymax.rest, numticks = 2, r0=at$r0, r1=at$r1,cex=0.5)
     # kpAxis(kp, ymin=0, ymax=31, numticks = 2, r0=at$r0, r1=at$r1,cex=0.5)
-    kpAddLabels(kp, labels = names(histone.marks)[i], r0=at$r0, r1=at$r1, 
-                cex=1, label.margin = 0.035)
+    kpAddLabels(kp, labels = names(rest_files)[i], r0=at$r0, r1=at$r1,cex=1, label.margin = 0.035)
   }
   
-  #DNA binding proteins
-  out.at <- autotrack((length(histone.marks)+1):(total.tracks), total.tracks, margin = 0.36, r0=0.45)
+  #EGR1 track
+  out.at <- autotrack(16:18, total.tracks, r0=0.17,r1=1,margin = 0.1)
   
-  for(i in seq_len(length(DNA.binding))) {
-    bigwig.file <- paste0(base.url, DNA.binding[i])
-    at <- autotrack(i, length(DNA.binding), r0=out.at$r0, r1=out.at$r1, margin = 0.1)
+  for(i in seq_len(length(egr1_files))) {
+    bigwig.file <- paste0(s3_folder, egr1_files[i])
+    at <- autotrack(i, 3, r0=out.at$r0, r1=out.at$r1,margin = 0.1)
     # kp <- kpPlotBigWig(kp, data=bigwig.file, ymax="visible.region",
     # kp <- kpPlotBigWig(kp, data=bigwig.file, ymax = "global",
     kp <- kpPlotBigWig(kp, data=bigwig.file, ymax=computed.ymax.egr1,
@@ -181,8 +279,7 @@ plot_static_browser_view <- function(query_gene){
     # computed.ymax <- ifelse(computed.ymax > ceiling(kp$latest.plot$computed.values$ymax),computed.ymax,ceiling(kp$latest.plot$computed.values$ymax))
     kpAxis(kp, ymin=0, ymax=computed.ymax.egr1, numticks = 2, r0=at$r0, r1=at$r1,cex=0.5)
     # kpAxis(kp, ymin=0, ymax=31, numticks = 2, r0=at$r0, r1=at$r1,cex=0.5)
-    kpAddLabels(kp, labels = names(DNA.binding)[i], r0=at$r0, r1=at$r1, 
-                cex=1, label.margin = 0.035)
+    kpAddLabels(kp, labels = names(egr1_files)[i], r0=at$r0, r1=at$r1, cex=1, label.margin = 0.035)
   }
 }
 
